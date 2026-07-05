@@ -13,12 +13,16 @@ import random
 # Imports the smtplib module — Python's built-in standard library for sending email messages using the SMTP (Simple Mail Transfer Protocol)
 import smtplib
 
-# Imports the traceback module — used to print the full exception traceback to the console for detailed diagnosis of where errors originate
-import traceback
+# Imports the time module — used to introduce a delay between sending multiple birthday emails to avoid exceeding the mail server's rate limit
+import time
 
+# Imports the os module
 import os
 
 # Constants
+
+# Defines the delay in seconds between each email when multiple people share the same birthday — prevents hitting Mailtrap's free plan rate limit of one email per second; increase this value if errors persist
+EMAIL_SEND_DELAY_SECONDS = 10
 
 # Defines the hostname of the SMTP mail server to connect to — using Mailtrap's sandbox server for safe email testing without delivering messages to real recipients
 SMTP_HOST = "sandbox.smtp.mailtrap.io"
@@ -196,9 +200,6 @@ def send_birthday_email(birthday_person: pandas.Series, letter_content: str, tod
         # Prints the specific error details for diagnosis
         print(f"Failed to send birthday email to {birthday_person['name']} at {birthday_person['email']} — the following error occurred: {e}")
 
-        # Prints the full exception traceback for detailed diagnosis of the exact line and call stack where the error originated
-        traceback.print_exc()
-
 
 # Main Birthday Check and Email Flow
 
@@ -239,7 +240,7 @@ def main() -> None:
         print(f"{len(birthday_people)} birthday(s) found for today ({today.strftime('%B %d, %Y')}).")
 
         # Iterates over every person in the birthday list — ensures every person sharing today's birthday receives their own personalized email
-        for birthday_person in birthday_people:
+        for index, birthday_person in enumerate(birthday_people):
 
             # Prints the current recipient being processed
             print(f"Sending birthday email to {birthday_person['name']} ({birthday_person['email']}).")
@@ -255,6 +256,16 @@ def main() -> None:
 
                 # Sends the personalized birthday email to this specific person
                 send_birthday_email(birthday_person, personalized_content, today)
+
+                # Adds a delay between emails when more people remain to be sent — prevents hitting the mail server's rate limit (too many emails per second) on free plans; skips the delay after the last email since no further emails need to be sent in this session
+                if index < len(birthday_people) - 1:
+                    # Prints an informational message showing the delay being applied
+                    print(
+                        f"Waiting {EMAIL_SEND_DELAY_SECONDS} second(s) before sending the next email to avoid rate limiting...")
+
+                    # Pauses execution for the defined delay duration before the next iteration sends the following birthday email
+                    time.sleep(EMAIL_SEND_DELAY_SECONDS)
+
 
     # Executes when no birthday entry matches today's date
     else:
